@@ -432,7 +432,7 @@ class MyBot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix="!", intents=discord.Intents.all())
 
-async def setup_hook(self):
+    async def setup_hook(self):
         self.add_view(OpenTicketView())
         self.add_view(TicketControlView())
         self.add_view(StaffOptionsView())
