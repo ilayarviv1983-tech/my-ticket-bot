@@ -440,8 +440,9 @@ class MyBot(commands.Bot):
         self.add_view(AddUserView())
         await self.tree.sync()
 
-    async def on_ready(self):
-        print(f"--- הבוט {self.user.name} פועל ומחובר! ---")
+  async def on_ready(self):
+    print(f"Logged in as {self.user}")
+    await self.tree.sync()
 
     async def on_member_join(self, member):
         guild = member.guild
