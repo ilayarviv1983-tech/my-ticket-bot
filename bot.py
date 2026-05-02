@@ -440,12 +440,12 @@ async def setup_hook(self):
         self.add_view(AddUserView())
         await self.tree.sync()
 
-    async def on_ready(self):
+    async def on_ready(self)
         print(f"--- הבוט {self.user.name} פועל ומחובר! ---")
         if not update_giveaways.is_running():
             update_giveaways.start()
 
-    async def on_member_join(self, member):
+    async def on_member_join(self, member)
         guild = member.guild
        channel = discord.utils.get(guild.text_channels, name=WELCOME_CHANNEL_NAME)
         rules_channel = discord.utils.get(guild.text_channels, name=RULES_CHANNEL_NAME)
