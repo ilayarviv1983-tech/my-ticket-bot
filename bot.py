@@ -445,7 +445,7 @@ class MyBot(commands.Bot):
         if not update_giveaways.is_running():
             update_giveaways.start()
 
-    async def on_member_join(self, member)
+    async def on_member_join(self, member):
         guild = member.guild
        channel = discord.utils.get(guild.text_channels, name=WELCOME_CHANNEL_NAME)
         rules_channel = discord.utils.get(guild.text_channels, name=RULES_CHANNEL_NAME)
