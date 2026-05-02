@@ -440,7 +440,7 @@ class MyBot(commands.Bot):
         self.add_view(AddUserView())
         await self.tree.sync()
 
-    async def on_ready(self)
+    async def on_ready(self):
         print(f"--- הבוט {self.user.name} פועל ומחובר! ---")
         if not update_giveaways.is_running():
             update_giveaways.start()
