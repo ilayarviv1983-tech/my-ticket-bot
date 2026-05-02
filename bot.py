@@ -447,18 +447,18 @@ class MyBot(commands.Bot):
 
     async def on_member_join(self, member):
         guild = member.guild
-       channel = discord.utils.get(guild.text_channels, name=WELCOME_CHANNEL_NAME)
-        rules_channel = discord.utils.get(guild.text_channels, name=RULES_CHANNEL_NAME)
-        rules_mention = rules_channel.mention if rules_channel else f"`{RULES_CHANNEL_NAME}`"
+      channel = discord.utils.get(guild.text_channels, name=WELCOME_CHANNEL_NAME)
+    rules_channel = discord.utils.get(guild.text_channels, name=RULES_CHANNEL_NAME)
+    rules_mention = rules_channel.mention if rules_channel else f"`{RULES_CHANNEL_NAME}`"
 
-        auto_role = discord.utils.get(guild.roles, name=FILTER_ROLE_NAME)
-        if auto_role:
-            try:
-                await member.add_roles(auto_role)
-            except Exception as e:
-                print(f"Could not add auto-role to {member.name}: {e}")
+    auto_role = discord.utils.get(guild.roles, name=FILTER_ROLE_NAME)
+    if auto_role:
+    try:
+    await member.add_roles(auto_role)
+    except Exception as e:
+    print(f"Could not add auto-role to {member.name}: {e}")
 
-        if channel:
+    if channel:
             embed = discord.Embed(
                 title="👋 ברוך הבא לקהילה שלנו!",
                 description=f"שלום {member.mention}, אנחנו שמחים שהצטרפת אלינו!",
