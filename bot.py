@@ -440,9 +440,8 @@ class MyBot(commands.Bot):
         self.add_view(AddUserView())
         await self.tree.sync()
 
-  async def on_ready(self):
-    print(f"Logged in as {self.user}")
-    await self.tree.sync()
+    async def on_ready(self):
+        print(f"--- הבוט {self.user.name} פועל ומחובר! ---")
 
     async def on_member_join(self, member):
         guild = member.guild
@@ -696,113 +695,5 @@ async def timeout(interaction: discord.Interaction, member: discord.Member, minu
         await interaction.response.send_message(embed=embed)
     except Exception as e:
         await interaction.response.send_message(f"שגיאה בביצוע הפעולה: {e}", ephemeral=True)
-
-# --- מערכת GIVEAWAY (להדביק מעל bot.run) ---
-
-from discord.ext import tasks
-import re
-import random
-
-active_giveaways = {}
-
-def parse_duration(duration_str):
-    units = {'m': 1, 'h': 60, 'd': 1440}
-    match = re.match(r"(\d+)([mhd])", duration_str.lower())
-    if match:
-        amount, unit = match.groups()
-        return int(amount) * units[unit]
-    return None
-
-@bot.tree.command(name="giveaway", description="יצירת הגרלה חדשה בשרת")
-@app_commands.describe(
-    time="זמן ההגרלה (לדוגמה: 30m, 1h, 1d)",
-    winners="כמות הזוכים",
-    prize="על מה ההגרלה?",
-    role="רול שחייבים כדי להשתתף (אופציונלי)"
-)
-async def giveaway(interaction: discord.Interaction, time: str, winners: int, prize: str, role: discord.Role = None):
-    if not any(discord.utils.get(interaction.user.roles, name=r) for r in AUTHORIZED_ROLES):
-        return await interaction.response.send_message("אין לך הרשאה ליצור הגרלות!", ephemeral=True)
-
-    minutes = parse_duration(time)
-    if minutes is None:
-        return await interaction.response.send_message("פורמט זמן לא תקין! השתמש ב-m, h או d.", ephemeral=True)
-
-    end_time = datetime.now() + timedelta(minutes=minutes)
-    
-    embed = discord.Embed(
-        title="🎁 **GIVEAWAY - הגרלה חדשה!** 🎁",
-        description=f"**פרס:** {prize}\n**זוכים:** {winners}\n\nלחצו על 🎉 כדי להשתתף!",
-        color=0xf1c40f
-    )
-    
-    role_req_text = role.mention if role else "ללא דרישה"
-    embed.add_field(name="🛡️ דרישת רול:", value=role_req_text, inline=True)
-    embed.add_field(name="⏳ זמן נותר:", value=f"{minutes} דקות", inline=True)
-    embed.set_footer(text=f"מסתיים בערך ב-{end_time.strftime('%H:%M')}")
-
-    await interaction.response.send_message(f"ההגרלה על **{prize}** נוצרה!", ephemeral=True)
-    msg = await interaction.channel.send(embed=embed)
-    await msg.add_reaction("🎉")
-
-    active_giveaways[msg.id] = {
-        "end_time": end_time,
-        "winners": winners,
-        "prize": prize,
-        "role_id": role.id if role else None,
-        "channel_id": interaction.channel.id,
-        "msg_id": msg.id
-    }
-
-@tasks.loop(minutes=1)
-async def update_giveaways():
-    now = datetime.now()
-    to_remove = []
-
-    for msg_id, data in active_giveaways.items():
-        channel = bot.get_channel(data["channel_id"])
-        if not channel: continue
-        try:
-            msg = await channel.fetch_message(msg_id)
-        except: continue
-
-        remaining = data["end_time"] - now
-        if remaining.total_seconds() <= 0:
-            reaction = discord.utils.get(msg.reactions, emoji="🎉")
-            users = [user async for user in reaction.users() if not user.bot]
-
-            if data["role_id"]:
-                role = msg.guild.get_role(data["role_id"])
-                users = [u for u in users if role in u.roles]
-
-            if len(users) == 0:
-                await msg.channel.send(f"ההגרלה על **{data['prize']}** הסתיימה ללא משתתפים חוקיים.")
-            else:
-                winner_count = min(len(users), data["winners"])
-                winners = random.sample(users, winner_count)
-                mentions = ", ".join([w.mention for w in winners])
-                
-                end_embed = msg.embeds[0]
-                end_embed.title = "🎊 **ההגרלה הסתיימה!** 🎊"
-                end_embed.description = f"**פרס:** {data['prize']}\n**זוכים:** {mentions}"
-                end_embed.set_field_at(1, name="⏳ מצב:", value="הסתיים ✅", inline=True)
-                await msg.edit(embed=end_embed)
-
-                await msg.channel.send(
-                    f"🎉 מזל טוב {mentions}! זכיתם ב-**{data['prize']}**!\n📩 פתחו טיקט לקבלת הפרס!"
-                )
-
-            to_remove.append(msg_id)
-            continue
-
-        embed = msg.embeds[0]
-        mins_left = int(remaining.total_seconds() // 60)
-        embed.set_field_at(1, name="⏳ זמן נותר:", value=f"{mins_left} דקות", inline=True)
-        await msg.edit(embed=embed)
-
-    for r in to_remove:
-        del active_giveaways[r]
-
-# --- סוף מערכת ה-Giveaway ---
 
 bot.run(os.environ.get("TOKEN"))
