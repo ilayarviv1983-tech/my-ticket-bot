@@ -978,7 +978,7 @@ async def on_message(message):
 
     await bot.process_commands(message)
     
-    # --- Poll System ---
+   # --- Poll System ---
 
 class PollView(View):
     def __init__(self, options, end_time):
@@ -989,7 +989,8 @@ class PollView(View):
         self.counts = [0] * len(options)
 
         for i, option in enumerate(options):
-            button = Button(label=option, style=discord.ButtonStyle.primary)
+            # יצירת כפתורים עם אימוג'י מספרים כדי שייראה מסודר
+            button = Button(label=f"{option}", style=discord.ButtonStyle.secondary, custom_id=f"poll_{i}")
 
             async def callback(interaction: discord.Interaction, index=i):
                 await self.handle_vote(interaction, index)
@@ -1005,7 +1006,7 @@ class PollView(View):
         user_id = interaction.user.id
 
         if datetime.utcnow() >= self.end_time:
-            return await interaction.response.send_message("This poll has ended.", ephemeral=True)
+            return await interaction.response.send_message("הסקר כבר נגמר!", ephemeral=True)
 
         if user_id in self.votes:
             old_index = self.votes[user_id]
@@ -1014,28 +1015,32 @@ class PollView(View):
         self.votes[user_id] = index
         self.counts[index] += 1
 
-        await interaction.response.send_message("Your vote has been recorded ✅", ephemeral=True)
+        await interaction.response.send_message(f"הצבעתך עבור **{self.options[index]}** נשמרה! ✅", ephemeral=True)
         await self.update_embed(interaction.message)
 
     async def remove_vote(self, interaction):
         user_id = interaction.user.id
 
         if user_id not in self.votes:
-            return await interaction.response.send_message("You haven't voted yet.", ephemeral=True)
+            return await interaction.response.send_message("עדיין לא הצבעת בסקר זה.", ephemeral=True)
 
         index = self.votes[user_id]
         self.counts[index] -= 1
         del self.votes[user_id]
 
-        await interaction.response.send_message("Your vote has been removed ❌", ephemeral=True)
+        await interaction.response.send_message("הצבעתך הוסרה בהצלחה! ❌", ephemeral=True)
         await self.update_embed(interaction.message)
 
     async def update_embed(self, message):
         embed = message.embeds[0]
-
-        desc = ""
+        
+        # בניית רשימת התוצאות עם פס התקדמות פשוט
+        desc = "**__מה להגריל?__**\n\n"
+        total_votes = sum(self.counts)
+        
         for i, option in enumerate(self.options):
-            desc += f"**{option}** — {self.counts[i]} votes\n"
+            percentage = (self.counts[i] / total_votes * 100) if total_votes > 0 else 0
+            desc += f"**{option}**\n┕ 🗳️ `{self.counts[i]}` הצבעות ({percentage:.0f}%)\n\n"
 
         embed.description = desc
         await message.edit(embed=embed, view=self)
@@ -1047,24 +1052,40 @@ async def run_poll(message, view: PollView):
             break
         await asyncio.sleep(10)
 
-    embed = message.embeds[0]
-    embed.title = "📊 Poll Ended"
-    embed.set_footer(text="Voting closed")
+    # חישוב תוצאות סופיות
+    total_votes = sum(view.counts)
+    if total_votes > 0:
+        max_votes = max(view.counts)
+        winners = [view.options[i] for i, v in enumerate(view.counts) if v == max_votes]
+        winner_text = " / ".join(winners)
+    else:
+        winner_text = "אין הצבעות"
 
-    await message.edit(embed=embed, view=None)
+    # יצירת פאנל סיכום תוצאות איכותי
+    end_embed = discord.Embed(
+        title="📊 סיום הסקר - תוצאות סופיות",
+        color=0xFFD700 # זהב
+    )
+    
+    results_desc = "**__תוצאות ההצבעה:__**\n\n"
+    for i, option in enumerate(view.options):
+        results_desc += f"• **{option}**: `{view.counts[i]}` הצבעות\n"
+    
+    end_embed.description = results_desc
+    end_embed.add_field(name="🏆 המנצח:", value=f"**{winner_text}**", inline=False)
+    end_embed.add_field(name="👥 סה\"כ מצביעים:", value=f"`{total_votes}`", inline=True)
+    end_embed.set_footer(text="הסקר נסגר ואינו זמין יותר להצבעה")
+
+    await message.edit(embed=end_embed, view=None)
 
 
 @bot.tree.command(name="poll", description="Create a poll")
 @app_commands.describe(
-    question="The poll question",
-    option1="Option 1",
-    option2="Option 2",
-    option3="Option 3",
-    option4="Option 4",
-    option5="Option 5",
-    option6="Option 6",
-    time="Duration number",
-    unit="minutes / hours / days"
+    question="השאלה של הסקר",
+    option1="אופציה 1",
+    option2="אופציה 2",
+    time="זמן",
+    unit="דקות / שעות / ימים"
 )
 @app_commands.choices(unit=[
     app_commands.Choice(name="Minutes", value="minutes"),
@@ -1087,7 +1108,6 @@ async def poll(
     await interaction.response.defer()
 
     options = [option1, option2]
-
     for opt in [option3, option4, option5, option6]:
         if opt:
             options.append(opt)
@@ -1101,25 +1121,32 @@ async def poll(
 
     end_time = datetime.utcnow() + delta
 
+    # עיצוב פאנל הסקר החדש
     embed = discord.Embed(
-        title="📊 NEW POL",
+        title="📊 סקר חדש באוויר!",
         description="",
         color=0x5865F2
     )
 
-    embed.add_field(name="Question", value=question, inline=False)
+    embed.add_field(name="**__השאלה:__**", value=f"### {question}", inline=False)
 
-    desc = ""
+    desc = "**__מה להגריל?__**\n\n"
     for opt in options:
-        desc += f"**{opt}** — 0 votes\n"
+        desc += f"**{opt}**\n┕ 🗳️ `0` הצבעות (0%)\n\n"
 
     embed.description = desc
-
-    embed.set_footer(text=f"Ends in {time} {unit.value}")
+    
+    # תצוגת זמן סיום יפה יותר
+    unix_timestamp = int(end_time.timestamp())
+    embed.add_field(name="⏳ זמן סיום:", value=f"<t:{unix_timestamp}:R>", inline=False)
+    embed.set_footer(text=f"נוצר על ידי {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
 
     view = PollView(options, end_time)
 
     message = await interaction.channel.send(embed=embed, view=view)
+    
+    # שליחת הודעת אישור למשתמש
+    await interaction.followup.send("הסקר נוצר בהצלחה! ✅", ephemeral=True)
 
     bot.loop.create_task(run_poll(message, view))
     
