@@ -494,8 +494,6 @@ class MyBot(commands.Bot):
         channel = discord.utils.get(message.guild.text_channels, name=LOGS_CHANNEL_NAME)
         if channel:
             embed = discord.Embed(title="🗑️ הודעה נמחקה", color=0xff0000, timestamp=datetime.now())
-           
-    
             embed.add_field(name="כותב ההודעה:", value=message.author.mention, inline=True)
             embed.add_field(name="ערוץ:", value=message.channel.mention, inline=True)
             embed.add_field(name="תוכן:", value=message.content or "ללא טקסט (ייתכן תמונה)", inline=False)
