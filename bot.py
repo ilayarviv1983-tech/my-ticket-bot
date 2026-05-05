@@ -978,7 +978,7 @@ async def on_message(message):
 
     await bot.process_commands(message)
     
-  # --- Poll System ---
+ # --- Poll System ---
 
 class PollView(View):
     def __init__(self, options, end_time):
@@ -1120,9 +1120,10 @@ async def poll(
 
     message = await interaction.channel.send(embed=embed, view=view)
     
-    # הודעת אישור בתוך פאנל שרק המשתמש רואה (Ephemeral)
+    # הודעת אישור בתוך פאנל (Embed) שרק אתה רואה
+    # בזכות הפרמטר ephemeral=True, דיסקורד יוסיף אוטומטית את כפתור ה-Dismiss message
     success_embed = discord.Embed(
-        description="✅ **הסקר נוצר בהצלחה!**",
+        description="**__הסקר נוצר בהצלחה!__** ✅",
         color=0x2ecc71
     )
     await interaction.followup.send(embed=success_embed, ephemeral=True)
