@@ -978,7 +978,7 @@ async def on_message(message):
 
     await bot.process_commands(message)
     
- # --- Poll System ---
+# --- Poll System ---
 
 class PollView(View):
     def __init__(self, options, end_time):
@@ -1084,7 +1084,8 @@ async def poll(
     option6: str = None
 ):
 
-    await interaction.response.defer()
+    # שינוי כאן: שולח "יוצר סקר..." כהודעה זמנית שרק אתה רואה
+    await interaction.response.send_message("יוצר סקר...", ephemeral=True)
 
     options = [option1, option2]
     for opt in [option3, option4, option5, option6]:
@@ -1118,15 +1119,15 @@ async def poll(
 
     view = PollView(options, end_time)
 
+    # שולח את הסקר עצמו לערוץ
     message = await interaction.channel.send(embed=embed, view=view)
     
-    # הודעת אישור בתוך פאנל (Embed) שרק אתה רואה
-    # בזכות הפרמטר ephemeral=True, דיסקורד יוסיף אוטומטית את כפתור ה-Dismiss message
+    # מעדכן את ההודעה הזמנית שרק אתה רואה לפאנל האישור הסופי
     success_embed = discord.Embed(
         description="**__הסקר נוצר בהצלחה!__** ✅",
         color=0x2ecc71
     )
-    await interaction.followup.send(embed=success_embed, ephemeral=True)
+    await interaction.edit_original_response(content=None, embed=success_embed)
 
     bot.loop.create_task(run_poll(message, view))
     
