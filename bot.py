@@ -978,7 +978,7 @@ async def on_message(message):
 
     await bot.process_commands(message)
     
-   # --- Poll System ---
+  # --- Poll System ---
 
 class PollView(View):
     def __init__(self, options, end_time):
@@ -989,7 +989,6 @@ class PollView(View):
         self.counts = [0] * len(options)
 
         for i, option in enumerate(options):
-            # יצירת כפתורים עם אימוג'י מספרים כדי שייראה מסודר
             button = Button(label=f"{option}", style=discord.ButtonStyle.secondary, custom_id=f"poll_{i}")
 
             async def callback(interaction: discord.Interaction, index=i):
@@ -997,10 +996,6 @@ class PollView(View):
 
             button.callback = callback
             self.add_item(button)
-
-        remove_btn = Button(label="❌ Remove Vote", style=discord.ButtonStyle.danger)
-        remove_btn.callback = self.remove_vote
-        self.add_item(remove_btn)
 
     async def handle_vote(self, interaction, index):
         user_id = interaction.user.id
@@ -1018,29 +1013,15 @@ class PollView(View):
         await interaction.response.send_message(f"הצבעתך עבור **{self.options[index]}** נשמרה! ✅", ephemeral=True)
         await self.update_embed(interaction.message)
 
-    async def remove_vote(self, interaction):
-        user_id = interaction.user.id
-
-        if user_id not in self.votes:
-            return await interaction.response.send_message("עדיין לא הצבעת בסקר זה.", ephemeral=True)
-
-        index = self.votes[user_id]
-        self.counts[index] -= 1
-        del self.votes[user_id]
-
-        await interaction.response.send_message("הצבעתך הוסרה בהצלחה! ❌", ephemeral=True)
-        await self.update_embed(interaction.message)
-
     async def update_embed(self, message):
         embed = message.embeds[0]
         
-        # בניית רשימת התוצאות עם פס התקדמות פשוט
-        desc = "**__מה להגריל?__**\n\n"
+        desc = ""
         total_votes = sum(self.counts)
         
         for i, option in enumerate(self.options):
             percentage = (self.counts[i] / total_votes * 100) if total_votes > 0 else 0
-            desc += f"**{option}**\n┕ 🗳️ `{self.counts[i]}` הצבעות ({percentage:.0f}%)\n\n"
+            desc += f"**__{option}__**\n┕ 🗳️ `{self.counts[i]}` הצבעות ({percentage:.0f}%)\n\n"
 
         embed.description = desc
         await message.edit(embed=embed, view=self)
@@ -1052,7 +1033,6 @@ async def run_poll(message, view: PollView):
             break
         await asyncio.sleep(10)
 
-    # חישוב תוצאות סופיות
     total_votes = sum(view.counts)
     if total_votes > 0:
         max_votes = max(view.counts)
@@ -1061,20 +1041,19 @@ async def run_poll(message, view: PollView):
     else:
         winner_text = "אין הצבעות"
 
-    # יצירת פאנל סיכום תוצאות איכותי
     end_embed = discord.Embed(
-        title="📊 סיום הסקר - תוצאות סופיות",
-        color=0xFFD700 # זהב
+        title=f"📊 תוצאות סופיות: {message.embeds[0].title}",
+        color=0xFFD700 
     )
     
-    results_desc = "**__תוצאות ההצבעה:__**\n\n"
+    results_desc = "**__סיכום הצבעות:__**\n\n"
     for i, option in enumerate(view.options):
         results_desc += f"• **{option}**: `{view.counts[i]}` הצבעות\n"
     
     end_embed.description = results_desc
     end_embed.add_field(name="🏆 המנצח:", value=f"**{winner_text}**", inline=False)
     end_embed.add_field(name="👥 סה\"כ מצביעים:", value=f"`{total_votes}`", inline=True)
-    end_embed.set_footer(text="הסקר נסגר ואינו זמין יותר להצבעה")
+    end_embed.set_footer(text="הצבעה נסגרה")
 
     await message.edit(embed=end_embed, view=None)
 
@@ -1121,22 +1100,18 @@ async def poll(
 
     end_time = datetime.utcnow() + delta
 
-    # עיצוב פאנל הסקר החדש
     embed = discord.Embed(
-        title="📊 סקר חדש באוויר!",
+        title=f"📊 {question}",
         description="",
         color=0x5865F2
     )
 
-    embed.add_field(name="**__השאלה:__**", value=f"### {question}", inline=False)
-
-    desc = "**__מה להגריל?__**\n\n"
+    desc = ""
     for opt in options:
-        desc += f"**{opt}**\n┕ 🗳️ `0` הצבעות (0%)\n\n"
+        desc += f"**__{opt}__**\n┕ 🗳️ `0` הצבעות (0%)\n\n"
 
     embed.description = desc
     
-    # תצוגת זמן סיום יפה יותר
     unix_timestamp = int(end_time.timestamp())
     embed.add_field(name="⏳ זמן סיום:", value=f"<t:{unix_timestamp}:R>", inline=False)
     embed.set_footer(text=f"נוצר על ידי {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
@@ -1145,8 +1120,12 @@ async def poll(
 
     message = await interaction.channel.send(embed=embed, view=view)
     
-    # שליחת הודעת אישור למשתמש
-    await interaction.followup.send("הסקר נוצר בהצלחה! ✅", ephemeral=True)
+    # הודעת אישור בתוך פאנל שרק המשתמש רואה (Ephemeral)
+    success_embed = discord.Embed(
+        description="✅ **הסקר נוצר בהצלחה!**",
+        color=0x2ecc71
+    )
+    await interaction.followup.send(embed=success_embed, ephemeral=True)
 
     bot.loop.create_task(run_poll(message, view))
     
