@@ -852,67 +852,131 @@ user_message_data = {}
 WHITELIST_ROLES = ["server owner", "DEV Server Discord", "co | owner", "『בעל השרת』", "server bot", "Management"]
 
 @bot.event
-async def on_message(self, message):
-        # התעלמות מהודעות של הבוט עצמו
-        if message.author.bot:
-            return
+async def on_message(message):
 
-        # רשימת הרולים שחסינים
-        WHITELIST_ROLES = ["server owner", "DEV Server Discord", "co | owner", "『בעל השרת』", "server bot", "Management"]
-        
-        # בדיקה אם המשתמש חסין
-        is_whitelisted = any(role.name in WHITELIST_ROLES for role in message.author.roles)
+    # התעלמות מהודעות של הבוט עצמו
 
-        # --- מערכת Anti-Link ---
-        if not is_whitelisted:
-            if "discord.gg/" in message.content.lower() or "discord.com/invite/" in message.content.lower():
-                await message.delete()
-                
-                link_embed = discord.Embed(
-                    title=f"**__נמחק אוטומטית הקישור ששלחת {message.author.display_name}__**",
-                    description="זוהה ששלחת קישור, בפעם הבאה שתשלח קישור תקבל טיימאוט!\nכל עבירה על חוקי השרת תגרום לענישה!",
-                    color=0xFF0000
+    if message.author.bot:
+
+        return
+
+
+
+    # בדיקה אם המשתמש חסין לפי הרולים שלו
+
+    is_whitelisted = any(role.name in WHITELIST_ROLES for role in message.author.roles)
+
+
+
+    # --- מערכת Anti-Link (זיהוי קישורים לשרתים אחרים) ---
+
+    if not is_whitelisted:
+
+        # מחפש קישורי דיסקורד (discord.gg או discord.com/invite)
+
+        if "discord.gg/" in message.content.lower() or "discord.com/invite/" in message.content.lower():
+
+            await message.delete() # מחיקת הקישור אוטומטית
+
+           
+
+            link_embed = discord.Embed(
+
+                title=f"**__נמחק אוטומטית הקישור ששלחת {message.author.display_name}__**",
+
+                description=(
+
+                    "זוהה ששלחת קישור, בפעם הבאה שתשלח קישור תקבל טיימאוט!\n"
+
+                    "כל עבירה על חוקי השרת תגרום לענישה!"
+
+                ),
+
+                color=0xFF0000 # אדום
+
+            )
+
+            link_embed.set_thumbnail(url=message.author.display_avatar.url)
+
+            return await message.channel.send(content=message.author.mention, embed=link_embed)
+
+
+
+    # --- מערכת Anti-Spam (5 הודעות בפחות מ-2 שניות) ---
+
+    if not is_whitelisted:
+
+        user_id = message.author.id
+
+        now = datetime.utcnow()
+
+
+
+        if user_id not in user_message_data:
+
+            user_message_data[user_id] = []
+
+
+
+        # מוסיף את זמן ההודעה הנוכחית ומנקה הודעות ישנות מהרשימה (מעל 2 שניות)
+
+        user_message_data[user_id].append(now)
+
+        user_message_data[user_id] = [t for t in user_message_data[user_id] if (now - t).total_seconds() < 2]
+
+
+
+        # בדיקה אם נשלחו 5 הודעות ומעלה
+
+        if len(user_message_data[user_id]) >= 5:
+
+            try:
+
+                # מתן טיימאוט ל-5 דקות
+
+                duration = timedelta(minutes=5)
+
+                await message.author.timeout(duration, reason="Spamming in chat")
+
+               
+
+                spam_embed = discord.Embed(
+
+                    title=f"**__קיבלת טיימאוט {message.author.display_name}__**",
+
+                    description=(
+
+                        "זוהה ספאם בצאט, קיבלת טיימאוט ל-5 דקות!\n"
+
+                        "פעם הבאה שתעבור על החוקים תענש שוב."
+
+                    ),
+
+                    color=0xFFA500 # כתום-צהוב
+
                 )
-                link_embed.set_thumbnail(url=message.author.display_avatar.url)
-                return await message.channel.send(content=message.author.mention, embed=link_embed)
 
-        # --- מערכת Anti-Spam (חייב להשתמש ב-self.user_message_data) ---
-        if not is_whitelisted:
-            user_id = message.author.id
-            now = datetime.utcnow()
+                spam_embed.set_thumbnail(url=message.author.display_avatar.url)
 
-            # וידוא שקיים משתנה זיכרון בתוך ה-Class
-            if not hasattr(self, 'user_message_data'):
-                self.user_message_data = {}
+               
 
-            if user_id not in self.user_message_data:
-                self.user_message_data[user_id] = []
+                # איפוס המונה למשתמש לאחר הענישה
 
-            # הוספת זמן ההודעה וניקוי הודעות ישנות (מעל 2 שניות)
-            self.user_message_data[user_id].append(now)
-            self.user_message_data[user_id] = [t for t in self.user_message_data[user_id] if (now - t).total_seconds() < 2]
+                user_message_data[user_id] = []
 
-            # בדיקה אם נשלחו 5 הודעות ומעלה
-            if len(self.user_message_data[user_id]) >= 5:
-                try:
-                    duration = timedelta(minutes=5)
-                    await message.author.timeout(duration, reason="Spamming in chat")
-                    
-                    spam_embed = discord.Embed(
-                        title=f"**__קיבלת טיימאוט {message.author.display_name}__**",
-                        description="זוהה ספאם בצאט, קיבלת טיימאוט ל-5 דקות!\nפעם הבאה שתעבור על החוקים תענש שוב.",
-                        color=0xFFA500
-                    )
-                    spam_embed.set_thumbnail(url=message.author.display_avatar.url)
-                    
-                    # איפוס המונה לאחר הענישה
-                    self.user_message_data[user_id] = []
-                    
-                    return await message.channel.send(content=message.author.mention, embed=spam_embed)
-                except Exception as e:
-                    print(f"Error giving timeout: {e}")
+               
 
-        # חשוב: מאפשר לפקודות אחרות להמשיך לעבוד (שימוש ב-self)
-        await self.process_commands(message)
+                await message.channel.send(content=message.author.mention, embed=spam_embed)
+
+            except Exception as e:
+
+                print(f"Error giving timeout: {e}")
+
+
+
+    # חשוב: מאפשר לפקודות אחרות של הבוט להמשיך לעבוד
+
+    await bot.process_commands(message)
+    
     
 bot.run(os.environ.get("TOKEN"))
