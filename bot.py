@@ -978,5 +978,149 @@ async def on_message(message):
 
     await bot.process_commands(message)
     
+    # --- Poll System ---
+
+class PollView(View):
+    def __init__(self, options, end_time):
+        super().__init__(timeout=None)
+        self.votes = {}  # user_id -> option_index
+        self.options = options
+        self.end_time = end_time
+        self.counts = [0] * len(options)
+
+        for i, option in enumerate(options):
+            button = Button(label=option, style=discord.ButtonStyle.primary)
+
+            async def callback(interaction: discord.Interaction, index=i):
+                await self.handle_vote(interaction, index)
+
+            button.callback = callback
+            self.add_item(button)
+
+        remove_btn = Button(label="❌ Remove Vote", style=discord.ButtonStyle.danger)
+        remove_btn.callback = self.remove_vote
+        self.add_item(remove_btn)
+
+    async def handle_vote(self, interaction, index):
+        user_id = interaction.user.id
+
+        if datetime.utcnow() >= self.end_time:
+            return await interaction.response.send_message("This poll has ended.", ephemeral=True)
+
+        if user_id in self.votes:
+            old_index = self.votes[user_id]
+            self.counts[old_index] -= 1
+
+        self.votes[user_id] = index
+        self.counts[index] += 1
+
+        await interaction.response.send_message("Your vote has been recorded ✅", ephemeral=True)
+        await self.update_embed(interaction.message)
+
+    async def remove_vote(self, interaction):
+        user_id = interaction.user.id
+
+        if user_id not in self.votes:
+            return await interaction.response.send_message("You haven't voted yet.", ephemeral=True)
+
+        index = self.votes[user_id]
+        self.counts[index] -= 1
+        del self.votes[user_id]
+
+        await interaction.response.send_message("Your vote has been removed ❌", ephemeral=True)
+        await self.update_embed(interaction.message)
+
+    async def update_embed(self, message):
+        embed = message.embeds[0]
+
+        desc = ""
+        for i, option in enumerate(self.options):
+            desc += f"**{option}** — {self.counts[i]} votes\n"
+
+        embed.description = desc
+        await message.edit(embed=embed, view=self)
+
+
+async def run_poll(message, view: PollView):
+    while True:
+        if datetime.utcnow() >= view.end_time:
+            break
+        await asyncio.sleep(10)
+
+    embed = message.embeds[0]
+    embed.title = "📊 Poll Ended"
+    embed.set_footer(text="Voting closed")
+
+    await message.edit(embed=embed, view=None)
+
+
+@bot.tree.command(name="poll", description="Create a poll")
+@app_commands.describe(
+    question="The poll question",
+    option1="Option 1",
+    option2="Option 2",
+    option3="Option 3",
+    option4="Option 4",
+    option5="Option 5",
+    option6="Option 6",
+    time="Duration number",
+    unit="minutes / hours / days"
+)
+@app_commands.choices(unit=[
+    app_commands.Choice(name="Minutes", value="minutes"),
+    app_commands.Choice(name="Hours", value="hours"),
+    app_commands.Choice(name="Days", value="days"),
+])
+async def poll(
+    interaction: discord.Interaction,
+    question: str,
+    option1: str,
+    option2: str,
+    time: int,
+    unit: app_commands.Choice[str],
+    option3: str = None,
+    option4: str = None,
+    option5: str = None,
+    option6: str = None
+):
+
+    await interaction.response.defer()
+
+    options = [option1, option2]
+
+    for opt in [option3, option4, option5, option6]:
+        if opt:
+            options.append(opt)
+
+    if unit.value == "minutes":
+        delta = timedelta(minutes=time)
+    elif unit.value == "hours":
+        delta = timedelta(hours=time)
+    else:
+        delta = timedelta(days=time)
+
+    end_time = datetime.utcnow() + delta
+
+    embed = discord.Embed(
+        title="📊 NEW POL",
+        description="",
+        color=0x5865F2
+    )
+
+    embed.add_field(name="Question", value=question, inline=False)
+
+    desc = ""
+    for opt in options:
+        desc += f"**{opt}** — 0 votes\n"
+
+    embed.description = desc
+
+    embed.set_footer(text=f"Ends in {time} {unit.value}")
+
+    view = PollView(options, end_time)
+
+    message = await interaction.channel.send(embed=embed, view=view)
+
+    bot.loop.create_task(run_poll(message, view))
     
 bot.run(os.environ.get("TOKEN"))
