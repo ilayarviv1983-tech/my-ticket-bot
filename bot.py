@@ -722,7 +722,6 @@ class GiveawayView(View):
 
         self.participants.add(interaction.user.id)
 
-        # הודעת הצטרפות מעודכנת בעברית
         await interaction.response.send_message("נכנסת להגרלה, בהצלחה! 🎉", ephemeral=True)
         await self.update_embed(interaction.message)
 
@@ -738,7 +737,7 @@ class GiveawayView(View):
 
     async def update_embed(self, message):
         embed = message.embeds[0]
-        embed.set_field_at(2, name="Participants", value=str(len(self.participants)), inline=False)
+        embed.set_field_at(2, name="**__Participants __**", value=str(len(self.participants)), inline=False)
         await message.edit(embed=embed, view=self)
 
 
@@ -763,14 +762,14 @@ async def run_giveaway(message, view: GiveawayView):
             time_text = f"{minutes}m"
 
         embed = message.embeds[0]
-        embed.set_field_at(1, name="Time Remaining", value=time_text, inline=False)
+        embed.set_field_at(1, name="**__Time Remaining __**", value=time_text, inline=False)
 
         await message.edit(embed=embed)
         await asyncio.sleep(60)
 
     participants = list(view.participants)
     embed = message.embeds[0]
-    prize_name = embed.description.replace("**", "") # שומר את שם הפרס לשימוש בהודעת הזכייה
+    prize_name = embed.description.replace("**", "")
 
     if len(participants) == 0:
         embed.title = "❌ Giveaway Ended"
@@ -784,17 +783,18 @@ async def run_giveaway(message, view: GiveawayView):
     embed.title = "🎉 Giveaway Ended 🎉"
     embed.description = f"**הפרס:** {prize_name}"
     embed.clear_fields()
-    embed.add_field(name="🏆 Winners", value=winners_mentions, inline=False)
+    embed.add_field(name="**__Winners🏆 __**", value=winners_mentions, inline=False)
     
     await message.edit(embed=embed, view=None)
 
-    # פאנל הכרזה על זוכים מעודכן לפי הבקשה שלך
+    # פאנל הכרזה על זוכים: התיוג מופיע רק בתוך הפאנל (description)
     winner_embed = discord.Embed(
-        title="זוכה ההגרלה הוא:", # כותרת חדשה
-        description=f"{winners_mentions} זכה בהגרלה על {prize_name} 🥳", # תוכן מעודכן עם הפרס ואימוג'י
-        color=0x00ff00
+        title="זוכה ההגרלה הוא:",
+        description=f"{winners_mentions} זכה בהגרלה על {prize_name} ! 🥳",
+        color=0xFFA500 
     )
-    await message.channel.send(content=winners_mentions, embed=winner_embed)
+    # שליחת הפאנל ללא תוכן (content) חיצוני כדי למנוע תיוג כפול
+    await message.channel.send(embed=winner_embed)
 
 
 @bot.tree.command(name="giveaway", description="יצירת הגרלה חדשה")
@@ -820,20 +820,18 @@ async def giveaway(interaction: discord.Interaction, prize: str, winners: int, r
     display_end_time = end_time + timedelta(hours=3)
     end_date_str = display_end_time.strftime("%d/%m/%Y at %H:%M")
 
-    # כותרת פאנל באנגלית עם אימוג'ים
     embed = discord.Embed(
         title="🎉 GIVEAWAY 🎉",
         description=f"**{prize}**",
         color=0x5865F2
     )
 
-    # שדות הפאנל באנגלית כפי שביקשת
-    embed.add_field(name="Hosted by", value=interaction.user.mention, inline=False)
-    embed.add_field(name="Time Remaining", value=f"Calculating...", inline=False)
-    embed.add_field(name="Participants", value="0", inline=False)
-    embed.add_field(name="🏆 Winners", value=str(winners), inline=False)
-    embed.add_field(name="Required Role", value=role.mention, inline=False)
-    embed.add_field(name="End Date", value=end_date_str, inline=False)
+    embed.add_field(name="**__Hosted by __**", value=interaction.user.mention, inline=False)
+    embed.add_field(name="**__Time Remaining __**", value=f"Calculating...", inline=False)
+    embed.add_field(name="**__Participants __**", value="0", inline=False)
+    embed.add_field(name="**__Winners🏆 __**", value=str(winners), inline=False)
+    embed.add_field(name="**__Required Role __**", value=role.mention, inline=False)
+    embed.add_field(name="**__End Date __**", value=end_date_str, inline=False)
 
     embed.set_footer(text="Click the buttons below to join or leave!")
 
