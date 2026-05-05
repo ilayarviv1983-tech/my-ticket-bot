@@ -695,5 +695,102 @@ async def timeout(interaction: discord.Interaction, member: discord.Member, minu
         await interaction.response.send_message(embed=embed)
     except Exception as e:
         await interaction.response.send_message(f"שגיאה בביצוע הפעולה: {e}", ephemeral=True)
+        
+# --- Giveaway System ---
+import random
 
+class GiveawayJoinView(View):
+    def __init__(self, end_time, winners_count, role_id, host_id):
+        super().__init__(timeout=None)
+        self.participants = set()
+        self.end_time = end_time
+        self.winners_count = winners_count
+        self.role_id = role_id
+        self.host_id = host_id
+
+    @discord.ui.button(label="🎉 Join Giveaway", style=discord.ButtonStyle.success, custom_id="join_giveaway_btn")
+    async def join(self, interaction: discord.Interaction, button: Button):
+        role = interaction.guild.get_role(self.role_id)
+
+        if role and role not in interaction.user.roles:
+            return await interaction.response.send_message("You don't have the required role!", ephemeral=True)
+
+        if interaction.user.id in self.participants:
+            return await interaction.response.send_message("You already joined!", ephemeral=True)
+
+        self.participants.add(interaction.user.id)
+
+        await interaction.response.send_message("You joined the giveaway successfully 🎉", ephemeral=True)
+
+        embed = interaction.message.embeds[0]
+        embed.set_field_at(2, name="Participants", value=str(len(self.participants)), inline=True)
+        await interaction.message.edit(embed=embed)
+
+
+async def run_giveaway(message, view: GiveawayJoinView):
+    while True:
+        now = datetime.utcnow()
+        remaining = view.end_time - now
+
+        if remaining.total_seconds() <= 0:
+            break
+
+        hours = int(remaining.total_seconds() // 3600)
+        minutes = int((remaining.total_seconds() % 3600) // 60)
+
+        embed = message.embeds[0]
+        embed.set_field_at(1, name="Time Remaining", value=f"{hours}h {minutes}m", inline=True)
+
+        await message.edit(embed=embed)
+        await asyncio.sleep(60)
+
+    participants = list(view.participants)
+
+    if len(participants) == 0:
+        await message.channel.send("No participants in the giveaway.")
+        return
+
+    winners = random.sample(participants, min(view.winners_count, len(participants)))
+    winners_mentions = ", ".join([f"<@{w}>" for w in winners])
+
+    await message.channel.send(f"🎉 The winner(s) of the giveaway: {winners_mentions}")
+
+
+@bot.tree.command(name="giveaway", description="Create a giveaway")
+@app_commands.describe(
+    prize="What is the giveaway for?",
+    hours="Duration in hours",
+    winners="Number of winners",
+    role="Role required to join"
+)
+async def giveaway(interaction: discord.Interaction, prize: str, hours: int, winners: int, role: discord.Role):
+
+    if not any(r.name in ["server owner", "co | owner"] for r in interaction.user.roles):
+        return await interaction.response.send_message("No permission!", ephemeral=True)
+
+    await interaction.response.defer()
+
+    end_time = datetime.utcnow() + timedelta(hours=hours)
+
+    embed = discord.Embed(
+        title="🎉 GIVEAWAY 🎉",
+        description=f"**Prize:** {prize}",
+        color=0x2b2d31,
+        timestamp=end_time
+    )
+
+    embed.add_field(name="Hosted by", value=interaction.user.mention, inline=True)
+    embed.add_field(name="Time Remaining", value=f"{hours}h 0m", inline=True)
+    embed.add_field(name="Participants", value="0", inline=True)
+    embed.add_field(name="Winners", value=str(winners), inline=True)
+    embed.add_field(name="Required Role", value=role.mention, inline=True)
+
+    embed.set_footer(text="Click the button below to join!")
+
+    view = GiveawayJoinView(end_time, winners, role.id, interaction.user.id)
+
+    message = await interaction.channel.send(embed=embed, view=view)
+
+    bot.loop.create_task(run_giveaway(message, view))
+    
 bot.run(os.environ.get("TOKEN"))
