@@ -698,6 +698,8 @@ async def timeout(interaction: discord.Interaction, member: discord.Member, minu
         
 # --- Advanced Giveaway System ---
 import random
+import asyncio
+from datetime import datetime, timedelta
 
 class GiveawayView(View):
     def __init__(self, end_time, winners_count, role_id, host_id):
@@ -708,34 +710,35 @@ class GiveawayView(View):
         self.role_id = role_id
         self.host_id = host_id
 
-    @discord.ui.button(label="🎉 Join Giveaway", style=discord.ButtonStyle.success)
+    @discord.ui.button(label="🎉 הצטרפות", style=discord.ButtonStyle.success)
     async def join(self, interaction: discord.Interaction, button: Button):
         role = interaction.guild.get_role(self.role_id)
 
         if role and role not in interaction.user.roles:
-            return await interaction.response.send_message("You don't have the required role!", ephemeral=True)
+            return await interaction.response.send_message("אין לך את הרול הנדרש כדי להשתתף!", ephemeral=True)
 
         if interaction.user.id in self.participants:
-            return await interaction.response.send_message("You're already in the giveaway 🎉", ephemeral=True)
+            return await interaction.response.send_message("אתה כבר רשום להגרלה 🎉", ephemeral=True)
 
         self.participants.add(interaction.user.id)
 
-        await interaction.response.send_message("You joined the giveaway! Good luck 🍀", ephemeral=True)
+        await interaction.response.send_message("נכנסת להגרלה בהצלחה! בהצלחה 🍀", ephemeral=True)
         await self.update_embed(interaction.message)
 
-    @discord.ui.button(label="❌ Leave Giveaway", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="❌ יציאה", style=discord.ButtonStyle.danger)
     async def leave(self, interaction: discord.Interaction, button: Button):
         if interaction.user.id not in self.participants:
-            return await interaction.response.send_message("You're not in the giveaway.", ephemeral=True)
+            return await interaction.response.send_message("אתה לא רשום להגרלה.", ephemeral=True)
 
         self.participants.remove(interaction.user.id)
 
-        await interaction.response.send_message("You left the giveaway.", ephemeral=True)
+        await interaction.response.send_message("יצאת מההגרלה.", ephemeral=True)
         await self.update_embed(interaction.message)
 
     async def update_embed(self, message):
         embed = message.embeds[0]
-        embed.set_field_at(2, name="👥 Participants", value=str(len(self.participants)), inline=True)
+        # עדכון שדה המשתתפים (נמצא באינדקס 2)
+        embed.set_field_at(2, name="משתתפים", value=str(len(self.participants)), inline=False)
         await message.edit(embed=embed, view=self)
 
 
@@ -748,70 +751,96 @@ async def run_giveaway(message, view: GiveawayView):
             break
 
         total_seconds = int(remaining.total_seconds())
-        hours = total_seconds // 3600
+        days = total_seconds // 86400
+        hours = (total_seconds % 86400) // 3600
         minutes = (total_seconds % 3600) // 60
 
-        time_text = f"{hours}h {minutes}m" if hours > 0 else f"{minutes}m"
+        if days > 0:
+            time_text = f"{days} ימים, {hours} שעות"
+        elif hours > 0:
+            time_text = f"{hours} שעות, {minutes} דקות"
+        else:
+            time_text = f"{minutes} דקות"
 
         embed = message.embeds[0]
-        embed.set_field_at(1, name="⏳ Time Remaining", value=time_text, inline=True)
+        embed.set_field_at(1, name="זמן נותר", value=time_text, inline=False)
 
         await message.edit(embed=embed)
         await asyncio.sleep(60)
 
     participants = list(view.participants)
-
     embed = message.embeds[0]
 
     if len(participants) == 0:
-        embed.title = "❌ Giveaway Ended"
-        embed.description = "No participants joined."
+        embed.title = "❌ ההגרלה הסתיימה"
+        embed.description = "לא היו מספיק משתתפים."
         await message.edit(embed=embed, view=None)
         return
 
     winners = random.sample(participants, min(view.winners_count, len(participants)))
     winners_mentions = ", ".join([f"<@{w}>" for w in winners])
 
-    embed.title = "🎉 Giveaway Ended 🎉"
+    embed.title = "ההגרלה הסתיימה"
+    embed.description = f"**הפרס:** {embed.description}"
+    embed.clear_fields()
     embed.add_field(name="🏆 Winners", value=winners_mentions, inline=False)
-
+    
     await message.edit(embed=embed, view=None)
 
-    await message.channel.send(f"🎉 Congratulations {winners_mentions}! You won the giveaway!")
+    # פאנל הכרזה על זוכים
+    winner_embed = discord.Embed(
+        title="יש לנו זוכה! 🎉",
+        description=f"{winners_mentions} זכה בהגרלה! איזה כיף 🎊",
+        color=0x00ff00
+    )
+    await message.channel.send(content=winners_mentions, embed=winner_embed)
 
 
-@bot.tree.command(name="giveaway", description="Create a giveaway")
+@bot.tree.command(name="giveaway", description="יצירת הגרלה חדשה")
 @app_commands.describe(
-    prize="What is the giveaway for?",
-    minutes="Duration in minutes",
-    winners="Number of winners",
-    role="Role required to join"
+    prize="על מה ההגרלה?",
+    days="מספר ימים",
+    hours="מספר שעות",
+    minutes="מספר דקות",
+    winners="מספר זוכים",
+    role="רול חובה לכניסה"
 )
-async def giveaway(interaction: discord.Interaction, prize: str, minutes: int, winners: int, role: discord.Role):
+async def giveaway(interaction: discord.Interaction, prize: str, winners: int, role: discord.Role, days: int = 0, hours: int = 0, minutes: int = 0):
 
     if not any(r.name in ["server owner", "co | owner"] for r in interaction.user.roles):
-        return await interaction.response.send_message("No permission!", ephemeral=True)
+        return await interaction.response.send_message("אין לך הרשאות לבצע פקודה זו!", ephemeral=True)
 
-    await interaction.response.defer()
+    # חישוב זמן סיום
+    total_duration_minutes = (days * 1440) + (hours * 60) + minutes
+    if total_duration_minutes <= 0:
+        return await interaction.response.send_message("חובה להזין זמן תקין להגרלה!", ephemeral=True)
 
-    end_time = datetime.utcnow() + timedelta(minutes=minutes)
+    end_time = datetime.utcnow() + timedelta(minutes=total_duration_minutes)
+    
+    # המרה לזמן ישראל להצגה (הוספת 3 שעות ל-UTC)
+    display_end_time = end_time + timedelta(hours=3)
+    end_date_str = display_end_time.strftime("%d/%m/%Y בשעה %H:%M")
 
     embed = discord.Embed(
-        title="🎉 GIVEAWAY 🎉",
+        title="GIVEAWAY",
         description=f"**{prize}**",
         color=0x5865F2
     )
 
-    embed.add_field(name="👑 Hosted by", value=interaction.user.mention, inline=True)
-    embed.add_field(name="⏳ Time Remaining", value=f"{minutes}m", inline=True)
-    embed.add_field(name="👥 Participants", value="0", inline=True)
-    embed.add_field(name="🏆 Winners", value=str(winners), inline=True)
-    embed.add_field(name="🎭 Required Role", value=role.mention, inline=True)
+    # סידור אחד מתחת לשני (inline=False) וניקוי אימוגים מיותרים
+    embed.add_field(name="מארח ההגרלה", value=interaction.user.mention, inline=False)
+    embed.add_field(name="זמן נותר", value=f"מחשב זמן...", inline=False)
+    embed.add_field(name="משתתפים", value="0", inline=False)
+    embed.add_field(name="🏆 Winners", value=str(winners), inline=False)
+    embed.add_field(name="רול דרוש", value=role.mention, inline=False)
+    embed.add_field(name="תאריך סיום", value=end_date_str, inline=False)
 
-    embed.set_footer(text="Click the buttons below to join or leave!")
+    embed.set_footer(text="לחצו על הכפתורים למטה כדי להשתתף")
 
     view = GiveawayView(end_time, winners, role.id, interaction.user.id)
 
+    # שליחת ההודעה ישירות דרך followup או edit_original כדי למנוע את ה-thinking
+    await interaction.response.send_message("יוצר הגרלה...", ephemeral=True)
     message = await interaction.channel.send(embed=embed, view=view)
 
     bot.loop.create_task(run_giveaway(message, view))
