@@ -34,7 +34,7 @@ AUTHORIZED_ROLES = ["server owner", "co | owner", "גישות", "בעל השרת
 FILTER_ROLE_NAME = "MEMBER FANATICS" 
 CATEGORY_NAME = "Tickets" 
 LOGS_CHANNEL_NAME = "『🛠️』logs-system"
-WELCOME_CHANNEL_NAME = "『👋』welcome" # שם חדר הוולקם
+WELCOME_CHANNEL_NAME = "welcome『👋』" # שם חדר הוולקם
 RULES_CHANNEL_NAME = "「📜」חוקי・השרת" # שם חדר החוקים לתיוג
 
 # שמות החדרים המעודכנים
