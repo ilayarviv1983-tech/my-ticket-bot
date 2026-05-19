@@ -656,7 +656,8 @@ async def setup(interaction: discord.Interaction):
 @app_commands.describe(amount="כמות ההודעות למחיקה")
 async def clear(interaction: discord.Interaction, amount: int):
     
-    @bot.tree.command(name="setup_counting", description="הפעלת מערכת ספירה בחדר")
+
+@bot.tree.command(name="setup_counting", description="הפעלת מערכת ספירה בחדר")
 async def setup_counting(interaction: discord.Interaction):
     channel_id = interaction.channel.id
 
@@ -680,7 +681,6 @@ async def setup_counting(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
     deleted = await interaction.channel.purge(limit=amount)
     await interaction.followup.send(f"נמחקו בהצלחה `{len(deleted)}` הודעות.", ephemeral=True)
-
 @bot.tree.command(name="rename", description="שינוי שם של חדר בשרת")
 @app_commands.describe(new_name="השם החדש לחדר")
 async def rename(interaction: discord.Interaction, new_name: str):
