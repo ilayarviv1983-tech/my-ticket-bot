@@ -660,9 +660,15 @@ async def clear(interaction: discord.Interaction, amount: int):
     await interaction.response.defer(ephemeral=True)
     deleted = await interaction.channel.purge(limit=amount)
     await interaction.followup.send(f"נמחקו בהצלחה `{len(deleted)}` הודעות.", ephemeral=True)
+ALLOWED_COUNTING_ROLES = ["server owner", "co | owner", "פקודות"]
 
-@bot.tree.command(name="setup_counting", description="הפעלת מערכת ספירה בחדר")
+@bot.tree.command(name="setup_counting", description="הפעלת מערכת ספירה בחדר (לצוות בלבד)")
 async def setup_counting(interaction: discord.Interaction):
+    # בדיקה האם למשתמש יש לפחות אחד מהרולים המורשים לפי השם שלהם
+    user_role_names = [role.name for role in interaction.user.roles]
+    if not any(role_name in ALLOWED_COUNTING_ROLES for role_name in user_role_names):
+        return await interaction.response.send_message("אין לך את הרול המתאים כדי להפעיל את המערכת!", ephemeral=True)
+
     channel_id = interaction.channel.id
 
     counting_channels[channel_id] = {
@@ -679,10 +685,13 @@ async def setup_counting(interaction: discord.Interaction):
 
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="reset_counting", description="איפוס הספירה בחדר הנוכחי והתחלה מ-1")
+
+@bot.tree.command(name="reset_counting", description="איפוס הספירה בחדר הנוכחי (לצוות בלבד)")
 async def reset_counting(interaction: discord.Interaction):
-    if not interaction.user.guild_permissions.manage_messages:
-        return await interaction.response.send_message("אין לך הרשאה לאפס את הספירה!", ephemeral=True)
+    # בדיקה האם למשתמש יש לפחות אחד מהרולים המורשים לפי השם שלהם
+    user_role_names = [role.name for role in interaction.user.roles]
+    if not any(role_name in ALLOWED_COUNTING_ROLES for role_name in user_role_names):
+        return await interaction.response.send_message("אין לך את הרול המתאים כדי לאפס את הספירה!", ephemeral=True)
 
     channel_id = interaction.channel.id
 
@@ -695,7 +704,7 @@ async def reset_counting(interaction: discord.Interaction):
         
         embed = discord.Embed(
             title="🔄 המערכת אופסה!",
-            description="מנהל איפס את הספירה בחדר זה.\nהסבב התחיל מחדש, אפשר לספור מ-1!",
+            description="המערכת אופסה על ידי צוות השרת.\nהסבב התחיל מחדש, אפשר לספור מ-1!",
             color=0xffaa00
         )
         await interaction.response.send_message(embed=embed)
