@@ -651,11 +651,15 @@ async def setup(interaction: discord.Interaction):
     embed.set_footer(text="כל הזכויות שמורות ל- [MF]")
     await interaction.channel.send(embed=embed, view=OpenTicketView())
     await interaction.followup.send("המערכת הותקנה!")
-
 @bot.tree.command(name="clear", description="מחיקת כמות מסוימת של הודעות מהצ'אט")
 @app_commands.describe(amount="כמות ההודעות למחיקה")
 async def clear(interaction: discord.Interaction, amount: int):
-    
+    if not interaction.user.guild_permissions.manage_messages:
+        return await interaction.response.send_message("אין לך הרשאה למחוק הודעות!", ephemeral=True)
+
+    await interaction.response.defer(ephemeral=True)
+    deleted = await interaction.channel.purge(limit=amount)
+    await interaction.followup.send(f"נמחקו בהצלחה `{len(deleted)}` הודעות.", ephemeral=True)
 
 @bot.tree.command(name="setup_counting", description="הפעלת מערכת ספירה בחדר")
 async def setup_counting(interaction: discord.Interaction):
@@ -674,13 +678,6 @@ async def setup_counting(interaction: discord.Interaction):
     )
 
     await interaction.response.send_message(embed=embed)
-    
-    if not interaction.user.guild_permissions.manage_messages:
-        return await interaction.response.send_message("אין לך הרשאה למחוק הודעות!", ephemeral=True)
-
-    await interaction.response.defer(ephemeral=True)
-    deleted = await interaction.channel.purge(limit=amount)
-    await interaction.followup.send(f"נמחקו בהצלחה `{len(deleted)}` הודעות.", ephemeral=True)
 @bot.tree.command(name="rename", description="שינוי שם של חדר בשרת")
 @app_commands.describe(new_name="השם החדש לחדר")
 async def rename(interaction: discord.Interaction, new_name: str):
