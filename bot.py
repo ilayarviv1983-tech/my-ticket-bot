@@ -868,8 +868,7 @@ counting_channels = {}
 # רשימת הרולים שחסינים מהמערכות
 WHITELIST_ROLES = ["server owner", "DEV Server Discord", "co | owner", "『בעל השרת』", "server bot", "Management"]
 
-    
-    @bot.event
+@bot.event
 async def on_message(message):
     if message.author.bot:
         return
