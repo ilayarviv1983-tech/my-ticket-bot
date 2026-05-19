@@ -655,6 +655,25 @@ async def setup(interaction: discord.Interaction):
 @bot.tree.command(name="clear", description="מחיקת כמות מסוימת של הודעות מהצ'אט")
 @app_commands.describe(amount="כמות ההודעות למחיקה")
 async def clear(interaction: discord.Interaction, amount: int):
+    
+    @bot.tree.command(name="setup_counting", description="הפעלת מערכת ספירה בחדר")
+async def setup_counting(interaction: discord.Interaction):
+    channel_id = interaction.channel.id
+
+    counting_channels[channel_id] = {
+        "number": 0,
+        "last_user": None,
+        "used_users": set()
+    }
+
+    embed = discord.Embed(
+        title="📊 מערכת ספירה הופעלה!",
+        description="התחילו לספור מ־1!\nכל אחד יכול לכתוב פעם אחת בלבד בכל סבב.",
+        color=0x00ff00
+    )
+
+    await interaction.response.send_message(embed=embed)
+    
     if not interaction.user.guild_permissions.manage_messages:
         return await interaction.response.send_message("אין לך הרשאה למחוק הודעות!", ephemeral=True)
 
@@ -847,12 +866,70 @@ async def giveaway(interaction: discord.Interaction, prize: str, winners: int, r
 # --- הגדרות מערכת Anti-Spam ---
 # משתנה לשמירת היסטוריית ההודעות בזיכרון (מתאפס בכל הפעלה)
 user_message_data = {}
+counting_channels = {}
 
 # רשימת הרולים שחסינים מהמערכות
 WHITELIST_ROLES = ["server owner", "DEV Server Discord", "co | owner", "『בעל השרת』", "server bot", "Management"]
 
-@bot.event
+    
+    @bot.event
 async def on_message(message):
+    if message.author.bot:
+        return
+
+    channel_id = message.channel.id
+
+    if channel_id not in counting_channels:
+        return
+
+    data = counting_channels[channel_id]
+
+    # אם זה לא מספר
+    if not message.content.isdigit():
+        return
+
+    number = int(message.content)
+    expected = data["number"] + 1
+
+    # ❌ אותו משתמש פעמיים
+    if message.author.id in data["used_users"]:
+        embed = discord.Embed(
+            title="❌ פסילה!",
+            description=f"{message.author.mention} כבר השתתפת בסבב הזה!",
+            color=discord.Color.red()
+        )
+        await message.channel.send(embed=embed)
+        return
+
+    # ❌ מספר לא נכון
+    if number != expected:
+        embed = discord.Embed(
+            title="💥 הספירה התאפסה!",
+            description=(
+                f"{message.author.mention} הפיל את הספירה!\n\n"
+                f"📌 המספר הנכון היה: **{expected}**\n"
+                f"❌ נכתב: **{number}**"
+            ),
+            color=discord.Color.red()
+        )
+        await message.channel.send(embed=embed)
+
+        counting_channels[channel_id] = {
+            "number": 0,
+            "last_user": None,
+            "used_users": set()
+        }
+        return
+
+    # ✅ תקין
+    data["number"] = number
+    data["last_user"] = message.author.id
+    data["used_users"].add(message.author.id)
+
+    await message.add_reaction("✅")
+
+    await bot.process_commands(message)
+    
 
     # התעלמות מהודעות של הבוט עצמו
 
