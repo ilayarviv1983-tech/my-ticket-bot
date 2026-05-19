@@ -678,6 +678,30 @@ async def setup_counting(interaction: discord.Interaction):
     )
 
     await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="reset_counting", description="איפוס הספירה בחדר הנוכחי והתחלה מ-1")
+async def reset_counting(interaction: discord.Interaction):
+    if not interaction.user.guild_permissions.manage_messages:
+        return await interaction.response.send_message("אין לך הרשאה לאפס את הספירה!", ephemeral=True)
+
+    channel_id = interaction.channel.id
+
+    if channel_id in counting_channels:
+        counting_channels[channel_id] = {
+            "number": 0,
+            "last_user": None,
+            "used_users": set()
+        }
+        
+        embed = discord.Embed(
+            title="🔄 המערכת אופסה!",
+            description="מנהל איפס את הספירה בחדר זה.\nהסבב התחיל מחדש, אפשר לספור מ-1!",
+            color=0xffaa00
+        )
+        await interaction.response.send_message(embed=embed)
+    else:
+        await interaction.response.send_message("מערכת הספירה לא הופעלה עדיין בחדר הזה. תשתמש קודם ב-`/setup_counting`", ephemeral=True)
+        
 @bot.tree.command(name="rename", description="שינוי שם של חדר בשרת")
 @app_commands.describe(new_name="השם החדש לחדר")
 async def rename(interaction: discord.Interaction, new_name: str):
